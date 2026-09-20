@@ -88,32 +88,31 @@ if modo == "Predicción Individual":
 # Cuando se ingresa un archivo
 elif modo == "Predicción usando archivos":
     st.header("Predicción con archivos")   
-    uploaded_file = st.file_uploader("Sube un archivo CSV ó excel con una columna que se llame 'textos'",type=["csv", "xlsx"])  
+    uploaded_file = st.file_uploader("Sube un archivo **CSV** con una columna llamada 'textos'",type=["csv"],accept_multiple_files=False) 
     if uploaded_file is not None:
         try:
             # Cargar datos con detección automática de encoding
-            if uploaded_file.name.endswith('.xlsx'):
-                df_input = pd.read_excel(uploaded_file)
-            else:          
-                # Detectar encoding automáticamente
-                raw_data = uploaded_file.read()
-                # Intentar con los encodings más comunes
-                encodings_to_try = ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252', 'utf-16']
-                df_input = None
-                for enc in encodings_to_try:
-                    try:
-                        df_input = pd.read_csv(io.BytesIO(raw_data), encoding=enc)
-                        encoding_usado = enc
-                        break
-                    except Exception as e:
-                        continue
-                if df_input is None:
-                    st.error("No se pudo leer el archivo con los encodings probados.")
-                    st.stop()
-
+            encodings_to_try = ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252', 'utf-16']
+            df_input = None
+            encoding_usado = None
+            
+            for enc in encodings_to_try:
+                try:
+                    uploaded_file.seek(0)  # Reiniciar lectura
+                    raw_data = uploaded_file.read()
+                    df_input = pd.read_csv(io.BytesIO(raw_data), encoding=enc)
+                    encoding_usado = enc
+                    st.info(f"Archivo cargado con encoding: **{enc}**")
+                    break
+                except Exception as e:
+                    continue          
+            if df_input is None:
+                st.error("No se pudo leer el archivo. Intenta con otro encoding.\n\n**Solución:** Guarda el CSV en UTF-8")
+                st.stop()           
             # Validar estructura
             if 'textos' not in df_input.columns:
-                st.error("El archivodebe tener una columna llamada 'textos'")
+                st.error("El archivo debe tener una columna llamada **'textos'**")
+                st.info(f"Columnas encontradas: {list(df_input.columns)}")
             else:
                 st.success(f"✅ Archivo cargado: {len(df_input)} registros")                
                 # Vista previa
@@ -151,19 +150,10 @@ elif modo == "Predicción usando archivos":
                     
                     # Estadísticas
                     st.subheader("Estadísticas")
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        st.metric("Total Procesados", len(df_resultados))
-                    
-                    with col2:
-                        confianza_promedio = df_resultados['Confianza'].str.rstrip('%').astype(float).mean()
-                        st.metric("Confianza Promedio", f"{confianza_promedio:.1f}%")
-                    
-                    with col3:
-                        ods_count = df_resultados['ODS'].nunique()
-                        st.metric("ODS Únicos Detectados", ods_count)
-        
+                    col1, col2, col3 = st.columns(3)      
+                    with col1:st.metric("Total Procesados", len(df_resultados))                   
+                    with col2:confianza_promedio = df_resultados['Confianza'].str.rstrip('%').astype(float).mean();st.metric("Confianza Promedio", f"{confianza_promedio:.1f}%")                  
+                    with col3:ods_count = df_resultados['ODS'].nunique();st.metric("ODS Únicos Detectados", ods_count)       
         except Exception as e:
             st.error(f"Ojo! Error al procesar archivo: {str(e)}")
 st.markdown("---")
