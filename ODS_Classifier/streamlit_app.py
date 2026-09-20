@@ -1,4 +1,6 @@
 # streamlit_app.py
+import io
+
 import Definitions
 import pandas as pd
 import streamlit as st
@@ -89,11 +91,29 @@ elif modo == "Predicción usando archivos":
     uploaded_file = st.file_uploader("Sube un archivo CSV ó excel con una columna que se llame 'textos'",type=["csv", "xlsx"])  
     if uploaded_file is not None:
         try:
-            # Cargar datos
-            df_input = pd.read_csv(uploaded_file)           
+            # Cargar datos con detección automática de encoding
+            if uploaded_file.name.endswith('.xlsx'):
+                df_input = pd.read_excel(uploaded_file)
+            else:          
+                # Detectar encoding automáticamente
+                raw_data = uploaded_file.read()
+                # Intentar con los encodings más comunes
+                encodings_to_try = ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252', 'utf-16']
+                df_input = None
+                for enc in encodings_to_try:
+                    try:
+                        df_input = pd.read_csv(io.BytesIO(raw_data), encoding=enc)
+                        encoding_usado = enc
+                        break
+                    except Exception as e:
+                        continue
+                if df_input is None:
+                    st.error("No se pudo leer el archivo con los encodings probados.")
+                    st.stop()
+
             # Validar estructura
             if 'textos' not in df_input.columns:
-                st.error("❌ El CSV debe tener una columna llamada 'textos'")
+                st.error("El archivodebe tener una columna llamada 'textos'")
             else:
                 st.success(f"✅ Archivo cargado: {len(df_input)} registros")                
                 # Vista previa
